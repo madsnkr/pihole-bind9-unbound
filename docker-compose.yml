@@ -1,0 +1,68 @@
+version: "3"
+
+services:
+  bind9:
+    container_name: bind9
+    image: ubuntu/bind9:${BIND9_VERSION}
+    networks:
+      ipvlan_dns:
+        ipv4_address: ${BIND9_IP}
+    environment:
+      TZ: ${TZ}
+      BIND9_USER: "root"
+    volumes:
+      - "./bind/config:/etc/bind"
+      - "./bind/cache:/var/cache/bind"
+      - "./bind/records:/var/lib/bind"
+    restart: always
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:${PIHOLE_VERSION}
+    networks:
+      ipvlan_dns:
+        ipv4_address: ${PIHOLE_IP}
+    ports:
+      - "53/tcp"
+      - "53/udp"
+      - "67/udp"
+      - "80/tcp"
+    environment:
+      TZ: ${TZ}
+      WEBPASSWORD: ${WEBPASSWORD}
+      PIHOLE_DNS_: ${BIND9_IP}
+      DHCP_START: ${DHCP_START}
+      DHCP_END: ${DHCP_END}
+      DHCP_ROUTER: ${ROUTER_IP}
+      DHCP_LEASETIME: 12
+      DHCP_ACTIVE: ${DHCP_ACTIVE}
+      PIHOLE_DOMAIN: ${DOMAIN}
+      IPv6: "false"
+      WEBTHEME: "default-dark"
+    volumes:
+      - "./etc-pihole:/etc/pihole"
+      - "./etc-dnsmasq.d:/etc/dnsmasq.d"
+    cap_add:
+      - NET_ADMIN
+    restart: always
+  unbound:
+    container_name: unbound
+    image: mvance/unbound-rpi:${UNBOUND_VERSION}
+    networks:
+      ipvlan_dns:
+        ipv4_address: ${UNBOUND_IP}
+    volumes:
+      - "./unbound:/opt/unbound/etc/unbound"
+    restart: always
+networks:
+  ipvlan_dns:
+    name: ipvlan_dns
+    driver: ipvlan
+    driver_opts:
+      parent: ${PARENT_IFACE}
+    ipam:
+      config:
+        - subnet: ${SUBNET}
+          gateway: ${ROUTER_IP}
+          ip_range: ${IP_RANGE}
+          aux_addresses:
+            host: ${RESERVED_IP}
